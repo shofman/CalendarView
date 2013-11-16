@@ -6,7 +6,6 @@ import java.util.Locale;
 
 import android.graphics.Color;
 import android.os.Bundle;
-import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,20 +15,29 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.GridView;
 import android.widget.TextView;
-
+/*
+ * Fragment displaying a single month's calendar. Created by adapter.
+ */
 public class ScreenSlideCalFragment extends android.support.v4.app.Fragment {
 	public static final String ARG_PAGE = "page";
 	
 	private int mPageNumber;
 	private static int mainPage;
-	
+	/*
+	 * Calendar: mCalendar is the current month to display (initially set to the current date.
+	 * 				Value adjusted relative to pages in setupCalendar)
+	 * 			 previousMonth is set to the value of mCalendar - 1 month, and used to determine days in previous month
+	 */
 	private Calendar mCalendar = Calendar.getInstance();
 	private Calendar previousMonth = Calendar.getInstance();
 	private Locale english = new Locale("EN");
-	private static int showYear, showMonth;
-	private static int currYear, currDay;
-	private static String showMonthName = "", currMonthName = "";
+	private static int showYear, showMonth;					//ShowYear and showMonth are the values shown
+	private static int currYear, currDay;					//CurrYear and currDay are the current day's values, used to tell when 'today' is
+	private static String showMonthName = "", currMonthName = "";			//One to display, one to compare
 	
+	/*
+	 * Creates a new fragment whenever called, and passes the page number for recall later
+	 */
 	public static ScreenSlideCalFragment create(int pageNumber) {
 		ScreenSlideCalFragment fragment = new ScreenSlideCalFragment();
 		Bundle args = new Bundle();
@@ -41,6 +49,11 @@ public class ScreenSlideCalFragment extends android.support.v4.app.Fragment {
 	public ScreenSlideCalFragment() {
 	}
 	
+	/*
+	 * By choice, we assume that the user will likely go backward and forward
+	 * (with more chance to go backward to see previous days). We place today's month in the middle
+	 * of the total amount of pages, to lessen the load
+	 */
 	public static void setTotalPages(int pages) {
 		mainPage = pages/2;
 	}
@@ -51,6 +64,12 @@ public class ScreenSlideCalFragment extends android.support.v4.app.Fragment {
 		mPageNumber = getArguments().getInt(ARG_PAGE);
 	}
 	
+	/*
+	 * Create view for both the calendar (as a gridview) and set the adapter to respond to the grid
+	 * Also register and start listening for clicks on the individual days.
+	 * Here, all the values are passed into a dayView (month name, whether or not it is today, etc)
+	 * before the dayView is drawn. 
+	 */
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
@@ -93,27 +112,49 @@ public class ScreenSlideCalFragment extends android.support.v4.app.Fragment {
 	}
 	
 	private void setupCalendar() {
-		//Gets to the current month, but at the start to create the calendar
+		//Gets the current month, at today's date. currYear and currDay do not change (used to determine if today)
 		showYear = mCalendar.get(Calendar.YEAR);
 		showMonth = mCalendar.get(Calendar.MONTH);
 		currYear = mCalendar.get(Calendar.YEAR);
 		currDay = mCalendar.get(Calendar.DATE);
 
-		int valueToAdd = showMonth - mainPage;
-		showMonth = (mPageNumber + valueToAdd) % 12;
+		/*
+		 * Find the difference between today's month value and the main page
+		 * This tells us how much we've shifted the results to center the main page and what we need
+		 * to change for the next value
+		 */
+		int shiftedValue = showMonth - mainPage;
+		
+		/*
+		 * Adjust the month by adding the currentPage together with the shift, 
+		 * and % 12 to keep it within month values
+		 * Example: mPageNumber = 3
+		 * 			mainPage = 2
+		 * 			showMonth = 10 (November)
+		 * 			shiftedValue = 8 (month shown on the first page)
+		 * 			(new) showMonth = 3+8 = 11 % 12 = 11 (December)
+		 */
+		showMonth = (mPageNumber + shiftedValue) % 12;
+		
+		/*
+		 * If showMonth is positive (we are looking to the right), we add 1 for every time we pass a 12
+		 * If showMonth is negative (looking left), we subtract 12 before removing one from each 12
+		 * (mCalendar tries to assist us if negative by changing the year, but this doesn't work with positive values)
+		 */
 		int changeYearValue;
 		if (showMonth >= 0) {
-			changeYearValue = (int) ((float) (mPageNumber + valueToAdd)) / 12;
+			changeYearValue = (int) ((float) (mPageNumber + shiftedValue)) / 12;
 		} else {
-			changeYearValue = (int) ((float) (mPageNumber + valueToAdd) - 12) / 12;
+			changeYearValue = (int) ((float) (mPageNumber + shiftedValue) - 12) / 12;
 			showMonth += 12;
 		}
 		showYear += changeYearValue;
+		
+		//Find the current date, before changing mCalendar to reflect the shown date. Find previous month from new Month (uses wraparound)
 		currDay = mCalendar.get(Calendar.DATE);
 		currMonthName = new SimpleDateFormat("MMMM", english).format(mCalendar.getTime());
 		mCalendar.set(showYear, showMonth, 1);
 		showMonthName = new SimpleDateFormat("MMMM", english).format(mCalendar.getTime());
-		
 		previousMonth.set(showYear, showMonth-1, 1);
 
 	}
